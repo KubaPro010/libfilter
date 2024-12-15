@@ -3,7 +3,7 @@ import math
 #region LibInfo
 __lib__ = "libfilter"
 __lib_creator__ = "radio95"
-__lib_version__ = 1.0
+__lib_version__ = 1.1
 __version__ = __lib_version__
 #endregion LibInfo
 
@@ -78,7 +78,7 @@ class MonoDeclipper:
     """
     This does linear interpolation
     
-    Can't do well Real-Time without some buffering
+    If a sample is clipped, it tries to guess what that sample could be, so like if we have 0.5 and then 1, 0.75 could be in the middle
     """
     def __init__(self, threshold: float=1.0) -> None:
         self.threshold = threshold
@@ -110,6 +110,8 @@ class StereoToMono(SemiStereoFilter):
 class MonoFadeOut(MonoFilter):
     """
     Makes a linear fade out
+    
+    Logarithmically decreases the amplitude of the signal by 1/(sample_rate*duration), if you supply DC to it then you'd see it go from 1 to 0
     """
     def __init__(self, duration: float, sample_rate: float, allow_negative_amplitude:bool=False):
         self.duration = duration
@@ -168,6 +170,7 @@ class StereoFadeIn(StereoFilter):
 class StereoRpitxCompressor(StereoFilter):
     """
     This is the broadcast compressor that can be found in pifmrds
+    This is a peak compressor
     """
     def __init__(self, attack: float, decay: float, mgr:float=0.01) -> None:
         self.lmax = 0.0
@@ -407,10 +410,79 @@ class StereoButterworthHPF(StereoFilter):
         self.hpf_r = MonoButterworthHPF(cutoff_frequency, sampling_rate, order)
     def process(self, left: float, right: float) -> tuple:
         return self.hpf_l.process(left), self.hpf_r.process(right)
+class MonoButterworthBPF(MonoFilter):
+    def __init__(self, low_freq: float, high_freq: float, sample_rate: float, order: int = 2):
+        super().__init__()
+        self.low_freq = low_freq
+        self.high_freq = high_freq
+        self.sample_rate = sample_rate
+        self.order = order
+        
+        # Intermediate calculation values
+        w0 = 2.0 * math.pi * math.sqrt(low_freq * high_freq) / sample_rate  # Center frequency
+        bw = 2.0 * math.pi * (high_freq - low_freq) / sample_rate  # Bandwidth
+        
+        # Prewarp frequencies
+        w0_warped = math.tan(w0 / 2.0)
+        bw_warped = math.tan(bw / 2.0)
+        
+        # Calculate coefficients
+        q = 2.0 * w0_warped / bw_warped  # Q factor
+        wc = w0_warped
+        
+        # Denominator coefficients
+        self.a = [0.0] * (order + 1)
+        # Numerator coefficients
+        self.b = [0.0] * (order + 1)
+        
+        if order == 2:
+            # Butterworth bandpass coefficients
+            norm = 1.0 / (1.0 + wc/q + wc*wc)
+            
+            self.b[0] = wc/q * norm
+            self.b[1] = 0.0
+            self.b[2] = -wc/q * norm
+            
+            self.a[0] = 1.0
+            self.a[1] = -2.0 * (wc*wc - 1.0) * norm
+            self.a[2] = (1.0 - wc/q + wc*wc) * norm
+        
+        # Initialize state variables
+        self.x = [0.0] * (order + 1)  # input history
+        self.y = [0.0] * (order + 1)  # output history
+    
+    def process(self, audio: float) -> float:
+        # Shift the previous values
+        for i in range(self.order, 0, -1):
+            self.x[i] = self.x[i-1]
+            self.y[i] = self.y[i-1]
+        
+        # Add new input
+        self.x[0] = audio
+        
+        # Calculate new output
+        self.y[0] = self.b[0] * self.x[0]
+        for i in range(1, self.order + 1):
+            self.y[0] += self.b[i] * self.x[i] - self.a[i] * self.y[i]
+        
+        return self.y[0]
+    
+    def reset(self):
+        self.x = [0.0] * (self.order + 1)
+        self.y = [0.0] * (self.order + 1)
+class StereoButterworthBPF(StereoFilter):
+    def __init__(self, low_freq: float, high_freq: float, sample_rate: float, order: int = 2) -> None:
+        self.bpf_l = MonoButterworthBPF(low_freq, high_freq, sample_rate, order)
+        self.bpf_r = MonoButterworthBPF(low_freq, high_freq, sample_rate, order)
+    def process(self, left: float, right: float) -> tuple:
+        return self.bpf_l.process(left), self.bpf_r.process(right)
 #endregion Frequency Filters
 
 #region Emphasis
 class MonoPreemphasis(MonoFilter):
+    """
+    Pre-emphasis, useful for transmissions
+    """
     def __init__(self, microsecond_tau: float, sample_rate: float) -> None:
         tau_seconds = microsecond_tau / 1_000_000
         self.alpha = math.exp(-1 / (tau_seconds * sample_rate))
@@ -600,6 +672,7 @@ class AMModulator(Modulator):
 class FMModulator(Modulator):
     """
     Simple FM Modulator
+    Varies the frequency of the oscilator based on the amplitude, this even has a deviation limiter
     """
     def __init__(self, frequency: float, deviation: float, sample_rate: float, deviation_limiter:int=None):
         self.frequency = frequency # Transmission frequency, like where to tune in
@@ -637,7 +710,7 @@ class QPSKModulator(Modulator):
     
     takes phase in radians
     """
-    def __init__(self, frequency: float, sample_rate: float, phase0: float=0, phase1:float=(math.pi/2), phase2:float = math.pi, phase3:float=(2*math.pi)):
+    def __init__(self, frequency: float, sample_rate: float, phase0: float=0, phase1:float=(math.pi/2), phase2:float = math.pi, phase3:float=(1.5*math.pi)):
         self.osc = Sine(frequency, sample_rate)
         self.phase0 = phase0
         self.phase1 = phase1
@@ -674,8 +747,6 @@ class FourFSKModulator(Modulator):
     freq3 = 11
     """
     def __init__(self, frequency0: float, frequency1: float, frequency2: float, frequency3: float, sample_rate: float):
-        if frequency0 == frequency1:
-            raise Warning("[FSK] Same frequencies?")
         self.freq0 = frequency0
         self.freq1 = frequency1
         self.freq2 = frequency2
@@ -692,12 +763,17 @@ class FourFSKModulator(Modulator):
 
 #region Encoders
 class FMStereoEncoder(Encoder):
+    """
+    FM stereo encoder, can uses the MultiSine oscilator to generate 2 harmonics, one 38 khz 2nd 57 khz, for RDS
+    """
     def __init__(self, sample_rate:float, output_57k: bool=False, volumes: list=[0.7, 0.1, 0.3, 1]):
         """
         volumes is a list with the volumes of each signals in this order: mono, pilot, stereo, mpx
         """
-        if sample_rate < (53000*2):
+        if sample_rate < (53000*2) and not output_57k:
             raise Exception("Sample rate too small to stereo encode")
+        elif sample_rate < (57000*2) and output_57k:
+            raise Exception("Sample rate too small to stereo encode (and generate rds)")
         self.osc = MultiSine(19000, sample_rate, 2) # Multisine generates a number of harmonics of a signal, which are perfectly is phase and thus great for this purpose
         self.stm = StereoToMono()
         self.lpf = StereoButterworthLPF(15000, sample_rate)
@@ -726,6 +802,9 @@ class FMStereoEncoder(Encoder):
 
 #region Other
 class Buffer:
+    """
+    Buffer, each sample you write to it gets saved and when there's enough samples the process function returns a list of the samples you saved
+    """
     def __init__(self, buffer_size: int):
         self.size = buffer_size
         self.buffer = []
@@ -735,7 +814,22 @@ class Buffer:
             b = self.buffer
             self.buffer.clear()
             return b
+class RMSCalculator:
+    """
+    Calculates the RMS of the samples in the list
+    """
+    def process(self, samples: list):
+        if len(samples) == 0: raise Exception("0 samples? More like 0 IQ")
+        squared = [sample**2 for sample in samples]
+        mean = sum(squared)/len(squared)
+        root = math.sqrt(mean)
+        return root
 class Decimator:
+    """
+    Decimates a list of samples of a selected sample rate to a another, tested in audacity, here's how it works:
+    
+    Input -> LPF (anti-aliasing) -> Decimator (take every ratio'th of the input list) -> Output
+    """
     def __init__(self, ratio: int, sample_rate: float):
         self.sr = sample_rate
         self.nsr = sample_rate/ratio
@@ -744,6 +838,9 @@ class Decimator:
     def process(self, audio: list) -> list:
         return [self.lpf.process(i) for i in audio][::self.ratio]
 class Interpolator:
+    """
+    Makes more samples using linear interpolation, see how the Declipper works
+    """
     def __init__(self, ratio: int, sample_rate: int):
         self.sr = sample_rate
         self.nsr = sample_rate*ratio
@@ -760,6 +857,9 @@ class Interpolator:
         return out
         
 class DiscreteFourierTransform:
+    """
+    Compute the frequencies that a signal has, it's slow and not exact
+    """
     def __init__(self, sample_rate: float):
         self.sr = sample_rate
     def process(self, signal: list) -> list:
@@ -797,9 +897,11 @@ class DiscreteFourierTransform:
         
         return strongest_frequency, frequencies, magnitudes
 class FastFourierTransform:
+    """
+    The famous Fast Fourier Transform! its fast and exact!
+    """
     def __init__(self, sample_rate: float):
         self.sr = sample_rate
-
     def fft(self, signal):
         N = len(signal)
         if N & (N - 1) != 0:

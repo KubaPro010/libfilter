@@ -5,7 +5,7 @@ with open('README.md', encoding='utf-8') as f:
 
 setup(
         name="libfilter",
-        version="1.00",
+        version="1.1",
         author="kuba201",
         description='Signal/Audio Processing framework using pure python',
         long_description=readme,
