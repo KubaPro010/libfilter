@@ -1,0 +1,37 @@
+image: python
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+
+stages:
+  - build
+  - deploy
+
+before_script:
+  - python --version
+  - pip --version  # For debugging
+  - pip install --upgrade pip setuptools wheel  # Ensure pip and setuptools are up-to-date
+
+build:
+  stage: build
+  script:
+    - pip install --upgrade build
+    - python3 -m build
+  artifacts:
+    when: always
+    paths:
+      - dist/*
+
+deploy:
+  stage: deploy
+  script:
+    - ls
+    - pip install --upgrade twine
+    - python3 -m twine upload --repository pypi dist/* --non-interactive -p $api_key
+  environment: production
+  only:
+    - main  # Ensure this runs only on the main branch or adjust according to your workflow
