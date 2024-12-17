@@ -1,6 +1,6 @@
-from ..base_classes import *
-from ..oscillators import *
-from ..audio_filters import *
+from .base_classes import *
+from .oscillators import *
+from .audio_filters import *
 
 class FMStereoEncoder(Encoder):
     """

@@ -1,5 +1,5 @@
-from ..base_classes import *
-from ..oscillators import *
+from .base_classes import *
+from .oscillators import *
 import math
 
 class DSBSCModulator(Modulator):
