@@ -1,3 +1,6 @@
+Version 1.28:
+    - Fix s32 data encoders
+
 Version 1.27:
     - Fix s24 data encoders
     - Add s32 data encoders

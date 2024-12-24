@@ -176,6 +176,7 @@ def convert_to_s32le(audio_samples):
         s32le_samples.append(int_sample & 0xFF)
         s32le_samples.append((int_sample >> 8) & 0xFF)
         s32le_samples.append((int_sample >> 16) & 0xFF)
+        s32le_samples.append((int_sample >> 24) & 0xFF)
 
     return s32le_samples
 def convert_from_s32le(s32le_data):
@@ -186,14 +187,14 @@ def convert_from_s32le(s32le_data):
     :param s24le_data: bytearray containing audio samples in s16le format
     :return: List of audio samples in range -1.0 to 1.0
     """
-    if len(s32le_data) % 3 != 0:
-        raise ValueError("The length of the s24le data must be odd (3 bytes per sample).")
+    if len(s32le_data) % 4 != 0:
+        raise ValueError("The length of the s32le data must be even (4 bytes per sample).")
 
     audio_samples = []
 
-    for i in range(0, len(s32le_data), 3):
-        # Combine two bytes (little-endian) to form a signed 24-bit integer
-        int_sample = s32le_data[i] | (s32le_data[i + 1] << 8) | (s32le_data[i + 2] << 16)
+    for i in range(0, len(s32le_data), 4):
+        # Combine two bytes (little-endian) to form a signed 32-bit integer
+        int_sample = s32le_data[i] | (s32le_data[i + 1] << 8) | (s32le_data[i + 2] << 16) | (s32le_data[i + 3] << 24)
 
         # Handle negative values for 16-bit signed integers
         if int_sample >= 2147483647:
