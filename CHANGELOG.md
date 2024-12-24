@@ -1,3 +1,7 @@
+Version 1.27:
+    - Fix s24 data encoders
+    - Add s32 data encoders
+
 Version 1.25, 1.26:
     - Fix a bug
 

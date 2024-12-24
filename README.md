@@ -45,4 +45,4 @@ libfilter is signal processing framework with multiple of included filters/oscil
 - Interpolator
 - DiscreteFourierTransform
 - FastFourierTransform
-- (data encoders/decoders, float to s[8-24]le)
+- (data encoders/decoders, float to s[8-32]le)
