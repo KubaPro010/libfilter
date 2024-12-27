@@ -1,32 +1,32 @@
 class StereoFilter:
     # 2 channels -> 2 channels
     def process(self, left: float, right: float) -> tuple:
-        return left, right
+        raise NotImplementedError
 
 class MonoFilter:
     # 1 channel -> 1 channel
     def process(self, audio: float) -> float:
-        return audio
+        raise NotImplementedError
 
 class SemiStereoFilter:
     # 2 channels -> 1 channel
     def process(self, left: float, right: float) -> float:
-        return left
+        raise NotImplementedError
 
 class SemiMonoFilter:
     # 1 channel -> 2 channels
     def process(self, audio: float) -> tuple:
-        return audio, audio
+        raise NotImplementedError
 
 class StereoOutput:
     # 0 channels -> 2 channels
     def process(self) -> tuple:
-        return 0.0, 0.0
+        raise NotImplementedError
 
 class MonoOutput:
     # 0 channels -> 1 channels
     def process(self) -> float:
-        return 0.0
+        raise NotImplementedError
 
 class Oscillator(MonoOutput):
     frequency = -1
@@ -34,16 +34,20 @@ class Oscillator(MonoOutput):
 
 class Modulator:
     def modulate(self, signal):
-        return signal
+        raise NotImplementedError
 
 class Demodulator:
     def demodulate(self, signal):
-        return signal
+        raise NotImplementedError
 
 class Encoder:
     def encode(self, signal):
-        return -int(signal)
+        raise NotImplementedError
 
 class Decoder:
     def decode(self, signal):
-        return -int(signal)
+        raise NotImplementedError
+
+class Transformer:
+    def transform(self, signal):
+        raise NotImplementedError

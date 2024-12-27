@@ -1,0 +1,49 @@
+AFTE (Audio Frequency Time Encoding) is a encoding for modulating time, into RF or FM subcarriers
+
+1. Modulation
+
+Every AFTE broadcast will modulated in FM (not including broadcast FM subcarriers), a AFTE broadcast alone will use a 20-2000 Hz band to encode a 4-FSK signals, we'll refer to this signal as the LS:
+
+00: 200 Hz
+01: 1200 Hz
+11: 1600 Hz
+10: 2000 Hz
+(RST: 500 hz)
+
+Afterwards on 3000 Hz, you'll have a QPSK Pilot, twice the frequency (6000 Hz) you'll have the QPSK signal, here are the phases (diffrence from pilot, in degrees), we'll refer to this signal as HS:
+00: +0
+01: +90
+11: +270
+10: +180
+
+Afterwards there's gonna be a signal on 6500 Hz which is gonna trigger every second, like the GTS pips, we'll be reffer to this as STS:
+0.9 seconds: nothing
+0.1 seconds: 6.5 KHz tone
+...
+
+2. Encoding
+2-1: LS
+
+The LS signal should encode the current time, as in hour, minute, second (local), every RST signal represents a reset in the message, so it looks like this:
+
+RST
+(6 bits representing the hour, zero prefix, so last 5 bits represent the hour)
+(6 bits representing the minute)
+(6 bits representing the second)
+...
+
+2-2: HS
+
+(5 bits for year transmission, years since 2024, so for 2030 it will be 6 here)
+(4 bits for month transmission, 0-12)
+(5 bits for day-in-month transmission, 1-31)
+(4 bits for UTC offset in 30 minute intervals, so if now it is 12:30 locally and 11:00 UTC, then it is gonna be 3 here)
+
+
+Frequencies used:
+- 200-2000 Hz: LS
+- 3000 Hz: QPSK Pilot
+- 6000 Hz: QPSK signal
+- 6500 Hz: Second time signal (STS)
+
+AFTE was written on Dec 27 2024 by k95.

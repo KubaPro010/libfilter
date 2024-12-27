@@ -2,10 +2,14 @@
 libfilter is signal processing framework with multiple of included filters/oscilators/processors (DSP)
 
 # Included filters
+- AFTELSEncoder (custom time encoding, see afte_documentation.txt)
+- AFTESTSEncoder
 - DiffrentialDecoder/DiffrentialEncoder
 - FMStereoEncoder
 - DSBSCModulator
 - AMModulator
+- LSBModulator
+- USBModulator
 - FMModulator
 - BPSKModulator
 - QPSKModulator
@@ -45,4 +49,5 @@ libfilter is signal processing framework with multiple of included filters/oscil
 - Interpolator
 - DiscreteFourierTransform
 - FastFourierTransform
+- HilbertTransformer
 - (data encoders/decoders, float to s[8-32]le)

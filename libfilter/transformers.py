@@ -1,17 +1,19 @@
+from .base_classes import *
+from collections import deque
 import math
 
-class DiscreteFourierTransform:
+class DiscreteFourierTransform(Transformer):
     """
     Compute the frequencies that a signal has, it's slow and not exact
     """
     def __init__(self, sample_rate: float):
         self.sr = sample_rate
-    def process(self, signal: list) -> list:
+    def transform(self, signal: list) -> list:
         """
         Compute the frequencies that make up a signal using DFT and return strongest frequency in Hz.
 
         Parameters:
-        - signal: List of signal amplitudes (time domain).
+        - signal: list of signal amplitudes (time domain).
 
         Returns:
         - strongest_frequency: The frequency in Hz with the highest magnitude.
@@ -40,7 +42,7 @@ class DiscreteFourierTransform:
         strongest_frequency = frequencies[max_index]
         
         return strongest_frequency, frequencies, magnitudes
-class FastFourierTransform:
+class FastFourierTransform(Transformer):
     """
     The famous Fast Fourier Transform! its fast and exact!
     """
@@ -74,7 +76,7 @@ class FastFourierTransform:
         bits = int(math.log2(N))
         return [int(bin(i)[2:].zfill(bits)[::-1], 2) for i in range(N)]
 
-    def process(self, signal):
+    def transform(self, signal):
         N = len(signal)
         if N & (N - 1) != 0:
             raise ValueError("Signal length must be a power of 2.")
@@ -87,3 +89,84 @@ class FastFourierTransform:
         strongest_frequency = frequencies[max_index]
 
         return strongest_frequency, frequencies, magnitudes
+class HilbertTransformer:
+    """
+    A pure Python implementation of a streaming Hilbert transformer using FIR filter.
+    Processes one sample at a time, maintaining an internal buffer.
+    """
+    def __init__(self, filter_length=101):
+        """
+        Initialize the streaming Hilbert transformer.
+        
+        Args:
+            filter_length (int): Length of the FIR filter (must be odd)
+        """
+        if filter_length % 2 != 1:
+            raise ValueError("Filter length must be odd")
+        
+        self.filter_length = filter_length
+        self.coefficients = self._calculate_coefficients()
+        
+        # Initialize buffer with zeros
+        self.buffer = deque([0.0] * filter_length, maxlen=filter_length)
+        
+        # Calculate delay to align output with input
+        self.delay_compensation = (filter_length - 1) // 2
+        self.delay_buffer = deque([0.0] * self.delay_compensation, maxlen=self.delay_compensation)
+        
+    def _calculate_coefficients(self):
+        """Calculate the FIR filter coefficients for the Hilbert transform."""
+        coeffs = []
+        half_length = (self.filter_length - 1) // 2
+        
+        for n in range(-half_length, half_length + 1):
+            if n == 0:
+                coeffs.append(0.0)
+            else:
+                # Hilbert transform ideal impulse response
+                h = 2 / (math.pi * n)
+                # Apply Hamming window for better frequency response
+                # w = 0.54 - 0.46 * math.cos(2 * math.pi * (n + half_length) / self.filter_length)
+                k = n + half_length
+                w = (0.42 - 0.5 * math.cos(2 * math.pi * k / (self.filter_length - 1)) 
+                     + 0.08 * math.cos(4 * math.pi * k / (self.filter_length - 1)))
+                coeffs.append(h * w)
+                
+        return coeffs
+    
+    def transform(self, sample):
+        """
+        Process a single sample and return its Hilbert transform.
+        
+        Args:
+            sample (float): Input sample value
+            
+        Returns:
+            tuple: (transformed_sample, input_sample)
+                  The transformed sample corresponds to the input from
+                  delay_compensation samples ago.
+        """
+        # Add new sample to buffer
+        self.buffer.append(sample)
+        
+        # Calculate filtered sample
+        transformed = sum(b * c for b, c in zip(self.buffer, self.coefficients))
+        
+        # Handle delay compensation
+        original = self.delay_buffer[0]
+        self.delay_buffer.append(sample)
+        
+        return transformed, original
+    
+    def transform_analytic(self, sample):
+        """
+        Process a single sample and return its analytic signal value.
+        
+        Args:
+            sample (float): Input sample value
+            
+        Returns:
+            complex: The analytic signal value (original + j*hilbert)
+        """
+        transformed, original = self.transform(sample)
+        return complex(original, transformed)

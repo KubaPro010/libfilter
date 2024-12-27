@@ -1,5 +1,6 @@
 from .base_classes import *
 from .oscillators import *
+from .transformers import HilbertTransformer
 import math
 
 class DSBSCModulator(Modulator):
@@ -21,6 +22,107 @@ class AMModulator(Modulator):
         self.dsbscmod = DSBSCModulator(frequency, sample_rate)
     def modulate(self, signal: float) -> float:
         return self.dsbscmod.modulate(self.cwa+signal)
+class LSBModulator(Modulator):
+    """
+    Lower Sideband Modulator using Hilbert transform for SSB modulation.
+    Uses streaming processing for real-time applications.
+    Doesn't work great, there's still a bit of the other sideband
+    """
+    
+    def __init__(self, carrier_freq, sample_rate, filter_length=501):
+        """
+        Initialize the LSB modulator.
+        
+        Args:
+            carrier_freq (float): Carrier frequency in Hz
+            sample_rate (float): Sample rate in Hz
+            filter_length (int): Length of the Hilbert transformer's FIR filter
+        """
+        self.carrier_freq = carrier_freq
+        self.sample_rate = sample_rate
+        self.hilbert = HilbertTransformer(filter_length)
+        
+        # Initialize phase accumulator for carrier
+        self.phase = 0.0
+        self.phase_increment = 2 * math.pi * carrier_freq / sample_rate
+        
+    def modulate(self, sample):
+        """
+        Process a single sample of the input signal and return the LSB modulated output.
+        
+        Args:
+            sample (float): Input sample value
+            
+        Returns:
+            float: LSB modulated output sample
+        """
+        # Get Hilbert transform of the input sample
+        hilbert_sample, original_sample = self.hilbert.transform(sample)
+        
+        # Generate carrier signals
+        carrier_cos = math.cos(self.phase)
+        carrier_sin = math.sin(self.phase)
+        
+        # Update carrier phase
+        self.phase += self.phase_increment
+        if self.phase >= 2 * math.pi:
+            self.phase -= 2 * math.pi
+            
+        # Perform LSB modulation
+        # LSB = original * cos(wc*t) - hilbert * sin(wc*t)
+        modulated = original_sample * carrier_cos - hilbert_sample * carrier_sin
+        
+        return modulated
+class USBModulator(Modulator):
+    """
+    Upper Sideband Modulator using Hilbert transform for SSB modulation.
+    Uses streaming processing for real-time applications.
+    """
+    
+    def __init__(self, carrier_freq, sample_rate, filter_length=501):
+        """
+        Initialize the USB modulator.
+        
+        Args:
+            carrier_freq (float): Carrier frequency in Hz
+            sample_rate (float): Sample rate in Hz
+            filter_length (int): Length of the Hilbert transformer's FIR filter
+        """
+        self.carrier_freq = carrier_freq
+        self.sample_rate = sample_rate
+        self.hilbert = HilbertTransformer(filter_length)
+        
+        # Initialize phase accumulator for carrier
+        self.phase = 0.0
+        self.phase_increment = 2 * math.pi * carrier_freq / sample_rate
+        
+    def modulate(self, sample):
+        """
+        Process a single sample of the input signal and return the USB modulated output.
+        
+        Args:
+            sample (float): Input sample value
+            
+        Returns:
+            float: USB modulated output sample
+        """
+        # Get Hilbert transform of the input sample
+        hilbert_sample, original_sample = self.hilbert.transform(sample)
+        
+        # Generate carrier signals
+        carrier_cos = math.cos(self.phase)
+        carrier_sin = math.sin(self.phase)
+        
+        # Update carrier phase
+        self.phase += self.phase_increment
+        if self.phase >= 2 * math.pi:
+            self.phase -= 2 * math.pi
+            
+        # Perform USB modulation
+        # USB = original * cos(wc*t) + hilbert * sin(wc*t)
+        modulated = original_sample * carrier_cos + hilbert_sample * carrier_sin
+        
+        return modulated
 class FMModulator(Modulator):
     """
     Simple FM Modulator

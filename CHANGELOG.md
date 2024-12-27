@@ -1,3 +1,12 @@
+Version 1.30:
+    - Add AFTE HS encoding
+    - Add AFTE STS encoding
+    - Add AFTE documentation
+
+Version 1.29:
+    - Add a Hilbert Transformer
+    - Add LSB and USB modulations
+
 Version 1.28:
     - Fix s32 data encoders
 
