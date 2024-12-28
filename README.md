@@ -18,6 +18,7 @@ libfilter is signal processing framework with multiple of included filters/oscil
 - MonoClipper
 - StereoClipper
 - MonoDeclipper
+- MonoLimiter
 - StereoDeclipper
 - StereoToMono
 - MonoFadeOut

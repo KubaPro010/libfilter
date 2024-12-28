@@ -1,3 +1,8 @@
+Version 1.33:
+    - Add a threshold settings to the clippers
+    - Minor changes for the Stereo Encoder
+    - Added MonoLimiter
+
 Version 1.32:
     - Changes to the Stereo Encoder
 

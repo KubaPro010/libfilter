@@ -6,14 +6,18 @@ class MonoClipper(MonoFilter):
     """
     Limits incoming audio to -1.0 or 1.0
     """
+    def __init__(self, threshold: float=1.0):
+        self.threshold = threshold
     def process(self, audio: float):
-        return (max(min(audio,1.0),-1.0))
+        return (max(min(audio,self.threshold),-self.threshold))
 class StereoClipper(StereoFilter):
     """
     Does the same thing as the mono version but stereo
     """
+    def __init__(self, threshold: float=1.0):
+        self.threshold = threshold
     def process(self, left: float, right: float):
-        return (max(min(left,1.0),-1.0)), (max(min(right,1.0),-1.0)) 
+        return (max(min(left,self.threshold),-self.threshold)), (max(min(right,self.threshold),-self.threshold)) 
 class MonoDeclipper:
     """
     This does linear interpolation
@@ -28,7 +32,7 @@ class MonoDeclipper:
             return (prev_audio + future_audio) / 2
         else:
             # Limit the audio to the range [-1.0, 1.0]
-            return max(min(current_audio, 1.0), -1.0)
+            return max(min(current_audio, self.threshold), -self.threshold)
 class StereoDeclipper:
     """
     Stereo version of the mono one
@@ -38,6 +42,25 @@ class StereoDeclipper:
         self.declipper_r = MonoDeclipper(threshold)
     def process(self, prev_audio_l: float, prev_audio_r: float, current_audio_l: float, current_audio_r: float, future_audio_l: float, future_audio_r: float) -> tuple:
         return self.declipper_l.process(prev_audio_l, current_audio_l, future_audio_l), self.declipper_r.process(prev_audio_r, current_audio_r, future_audio_r)
+class MonoLimiter(MonoFilter):
+    """
+    Hard Limiter: Brick hard limiter with residue mixer.
+    
+    :param limit_db: dB Limit
+    :param wet_gain: Wet Level - Output Level for limited signal.
+    :param res_gain: Residue Level - Output Level for residue signal.
+    
+    This limiter is based on what is in https://github.com/swh/ladspa/blob/master/hard_limiter_1413.xml, which was made by Marcus Andersson
+    """
+    def __init__(self, limit_db: float, wet_gain: float, res_gain: float):
+        self.limit_g = math.pow(10, limit_db/20)
+        self.wet_gain, self.res_gain = wet_gain, res_gain
+    def process(self, audio: float):
+        sign = -1.0 if audio < 0.0 else 1.0
+        data = audio*sign
+        residue = data - self.limit_g if data > self.limit_g else 0.0
+        data -= residue
+        return sign*(self.wet_gain*data+self.res_gain*residue)
 #endregion Clippers
 
 class StereoToMono(SemiStereoFilter):

@@ -128,7 +128,7 @@ class HilbertTransformer:
                 # Apply Hamming window for better frequency response
                 # w = 0.54 - 0.46 * math.cos(2 * math.pi * (n + half_length) / self.filter_length)
                 k = n + half_length
-                w = (0.42 - 0.5 * math.cos(2 * math.pi * k / (self.filter_length - 1)) 
+                w = (0.42 - 0.5 * math.cos(2 * math.pi * k / (self.filter_length - 1))  #Blackman, is there a Whiteman then?
                      + 0.08 * math.cos(4 * math.pi * k / (self.filter_length - 1)))
                 coeffs.append(h * w)
                 
