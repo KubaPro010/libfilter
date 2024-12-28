@@ -4,28 +4,27 @@ from .audio_filters import *
 
 class FMStereoEncoder(Encoder):
     """
-    FM stereo encoder, can uses the MultiSine oscilator to generate 2 harmonics, one 38 khz 2nd 57 khz, for RDS
+    FM stereo encoder, can uses the MultiSine oscilator to generate 1 harmonics, 38 khz
     """
-    def __init__(self, sample_rate:float, output_57k: bool=False, volumes: list=[0.7, 0.1, 0.3, 1]):
+    def __init__(self, sample_rate:float, output_pilot: bool=False, volumes: list=[0.5, 0.1, 0.5, 1], lpf:float=15000):
         """
-        volumes is a list with the volumes of each signals in this order: mono, pilot, stereo, mpx
+        volumes is a list with the volumes of each signals in this order: mono, pilot, stereo, mpx , also i redecommend to keep stereo same level as mono
         """
-        if sample_rate < (53000*2) and not output_57k:
-            raise Exception("Sample rate too small to stereo encode")
-        elif sample_rate < (57000*2) and output_57k:
-            raise Exception("Sample rate too small to stereo encode (and generate rds)")
-        self.osc = MultiSine(19000, sample_rate, 2) # Multisine generates a number of harmonics of a signal, which are perfectly is phase and thus great for this purpose
-        self.stm = StereoToMono()
-        self.lpf = StereoButterworthLPF(15000, sample_rate)
+        if sample_rate < (53000*2) and not output_pilot:
+            raise Exception("Sample rate too small to stereo encode (minimal is 106 KHz)")
+        self.osc = MultiSine(19000, sample_rate, 1) # Multisine generates a number of harmonics of a signal, which are perfectly is phase and thus great for this purpose
+        self.lpf = StereoButterworthLPF(lpf, sample_rate)
+        self.clipper = StereoClipper()
         self.mono_vol, self.pilot_vol, self.stereo_vol, self.mpx_vol = volumes
-        self.output_57k = output_57k
+        self.output_pilot = output_pilot
     def encode(self, left: float, right: float, mpx:float=0.0):
-        left,right = self.lpf.process(left, right)
+        left, right = self.lpf.process(left, right)
+        left, right = self.clipper.process(left, right)
         
-        pilot, stereo_carrier, rds_carrier = self.osc.process()
+        pilot, stereo_carrier = self.osc.process()
         
-        mono = self.stm.process(left, right)
-        stereo = (left-right)
+        mono = (left+right)/2
+        stereo = (left-right)/2
         modulated_stereo = stereo*stereo_carrier # Can't use the DSB-SC mod object because it generates it's own sine wave
         
         out = 0.0
@@ -34,8 +33,8 @@ class FMStereoEncoder(Encoder):
         out += (modulated_stereo*self.stereo_vol)
         out += (mpx*self.mpx_vol)
         
-        if self.output_57k:
-            return out, rds_carrier
+        if self.output_pilot:
+            return out, pilot
         else:
             return out
 class DiffrentialEncoder(Encoder):

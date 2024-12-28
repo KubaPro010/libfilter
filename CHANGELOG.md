@@ -1,3 +1,6 @@
+Version 1.32:
+    - Changes to the Stereo Encoder
+
 Version 1.31:
     - Add AFTE HS encoding
     - Add AFTE SSTS encoding
