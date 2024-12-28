@@ -1,5 +1,9 @@
-Version 1.30:
+Version 1.31:
     - Add AFTE HS encoding
+    - Add AFTE SSTS encoding
+
+Version 1.30:
+    - Add AFTE LS encoding
     - Add AFTE STS encoding
     - Add AFTE documentation
 
