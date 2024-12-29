@@ -1,3 +1,6 @@
+Version 1.35:
+    - Remove StereoCompositeClipper+MonoCompositeClipper
+
 Version 1.34:
     - Added StereoLimiter
     - Added MonoCompositeClipper
