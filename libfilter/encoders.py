@@ -6,7 +6,7 @@ class FMStereoEncoder(Encoder):
     """
     FM stereo encoder, can uses the MultiSine oscilator to generate 1 harmonics, 38 khz
     """
-    def __init__(self, sample_rate:float, output_pilot: bool=False, volumes: list=[0.5, 0.1, 0.5, 1], lpf:float=15000, clipper_threshold:float=1.0):
+    def __init__(self, sample_rate:float, output_pilot: bool=False, volumes: list=[0.5, 0.1, 0.5, 1], lpf:float=15000, limiter_threshold:float=0.0):
         """
         volumes is a list with the volumes of each signals in this order: mono, pilot, stereo, mpx , also i redecommend to keep stereo same level as mono
         """
@@ -14,16 +14,16 @@ class FMStereoEncoder(Encoder):
             raise Exception("Sample rate too small to stereo encode (minimal is 106 KHz)")
         if lpf > 18500:
             raise ValueError("Are you high with that LPF? Just use the MPX input for god's sake!")
-        if clipper_threshold > 1.0:
+        if limiter_threshold > 1.0:
             raise Exception("Nuh uh")
         self.osc = MultiSine(19000, sample_rate, 1) # Multisine generates a number of harmonics of a signal, which are perfectly is phase and thus great for this purpose
         self.lpf = StereoButterworthLPF(lpf, sample_rate)
-        self.clipper = StereoClipper(clipper_threshold)
+        self.limiter = StereoLimiter(limiter_threshold, 0.95, 0.05)
         self.mono_vol, self.pilot_vol, self.stereo_vol, self.mpx_vol = volumes
         self.output_pilot = output_pilot
     def encode(self, left: float, right: float, mpx:float=0.0):
         left, right = self.lpf.process(left, right)
-        left, right = self.clipper.process(left, right) # Clipper after LPF because clipper could distort signal too much for lpf
+        left, right = self.limiter.process(left, right) # Limiter after LPF because Limiter could distort signal too much for lpf
         
         pilot, stereo_carrier = self.osc.process()
         

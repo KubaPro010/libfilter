@@ -1,3 +1,6 @@
+Version 1.36, 1.37:
+    - Stereo encoder adjustments
+
 Version 1.35:
     - Remove StereoCompositeClipper+MonoCompositeClipper
 
