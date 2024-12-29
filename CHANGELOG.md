@@ -1,3 +1,8 @@
+Version 1.34:
+    - Added StereoLimiter
+    - Added MonoCompositeClipper
+    - Added StereoCompositeClipper
+
 Version 1.33:
     - Add a threshold settings to the clippers
     - Minor changes for the Stereo Encoder

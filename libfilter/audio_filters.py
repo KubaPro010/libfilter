@@ -55,12 +55,52 @@ class MonoLimiter(MonoFilter):
     def __init__(self, limit_db: float, wet_gain: float, res_gain: float):
         self.limit_g = math.pow(10, limit_db/20)
         self.wet_gain, self.res_gain = wet_gain, res_gain
-    def process(self, audio: float):
+    def process(self, audio: float) -> float:
         sign = -1.0 if audio < 0.0 else 1.0
         data = audio*sign
         residue = data - self.limit_g if data > self.limit_g else 0.0
         data -= residue
         return sign*(self.wet_gain*data+self.res_gain*residue)
+class StereoLimiter(StereoFilter):
+    def __init__(self, limit_db: float, wet_gain: float, res_gain: float):
+        self.lim_l = MonoLimiter(limit_db, wet_gain, res_gain)
+        self.lim_r = MonoLimiter(limit_db, wet_gain, res_gain)
+    def process(self, left: float, right: float) -> float:
+        return self.lim_l.process(left), self.lim_r.process(right)
+class MonoCompositeClipper(MonoFilter):
+    """
+    you have wrap, reflect and squash methods
+    
+    wrap: best for periodic signals (like pure sine waves)
+    reflect: best for non-periodic signals
+    squash: the middle guy
+    """
+    def __init__(self, lower_bound: float, upper_bound: float, method="squash", sigmoid_scaling:float=10):
+        if lower_bound >= upper_bound: raise Exception("Lower bound can't be bigger than upper")
+        self.bound_size = upper_bound-lower_bound
+        self.lower_bound = lower_bound
+        self.upper_bound = upper_bound
+        match method:
+            case "wrap":
+                self.algorithm = lambda x: lower_bound+((x-lower_bound) % self.bound_size)
+            case "reflect":
+                self.algorithm = lambda x: (
+                    lower_bound + (lower_bound - x) % self.bound_size if x < lower_bound else
+                    upper_bound - (x - upper_bound) % self.bound_size if x > upper_bound else
+                    x
+                )
+            case "squash":
+                self.algorithm = lambda x: lower_bound+(1/(1+math.exp(-((x-lower_bound)/self.bound_size)*sigmoid_scaling)))*self.bound_size
+            case _:
+                raise Exception("What?")
+    def process(self, audio: float) -> float: return self.algorithm(audio)
+class StereoCompositeClipper(StereoFilter):
+    def __init__(self, lower_bound: float, upper_bound: float, method="squash", sigmoid_scaling:float=10):
+        self.clip_l = MonoCompositeClipper(lower_bound, upper_bound, method, sigmoid_scaling)
+        self.clip_r = MonoCompositeClipper(lower_bound, upper_bound, method, sigmoid_scaling)
+    def process(self, left: float, right: float) -> float:
+        return self.clip_l.process(left), self.clip_r.process(right)
+                    
 #endregion Clippers
 
 class StereoToMono(SemiStereoFilter):
